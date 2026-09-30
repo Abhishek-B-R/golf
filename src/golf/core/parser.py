@@ -58,8 +58,11 @@ class AstParser:
         components = []
 
         for file_path in directory.glob("**/*.py"):
-            # Skip __pycache__ and other hidden directories
-            if "__pycache__" in file_path.parts or any(part.startswith(".") for part in file_path.parts):
+            # Skip __pycache__ and other hidden directories. Only look at the
+            # path below the scanned directory, so a dot directory above the
+            # project (e.g. ~/.local or a .worktrees checkout) does not hide it.
+            rel_parts = file_path.relative_to(directory).parts
+            if "__pycache__" in rel_parts or any(part.startswith(".") for part in rel_parts):
                 continue
 
             try:
@@ -1143,7 +1146,8 @@ def parse_common_files(project_path: Path) -> dict[str, Path]:
         # Find all common.py files (recursively)
         for common_file in base_dir.glob("**/common.py"):
             # Skip files in __pycache__ or other hidden directories
-            if "__pycache__" in common_file.parts or any(part.startswith(".") for part in common_file.parts):
+            rel_parts = common_file.relative_to(base_dir).parts
+            if "__pycache__" in rel_parts or any(part.startswith(".") for part in rel_parts):
                 continue
 
             # Get the parent directory as the module path
@@ -1204,7 +1208,8 @@ def parse_shared_files(project_path: Path) -> dict[str, Path]:
         # Find all .py files (recursively)
         for py_file in base_dir.glob("**/*.py"):
             # Skip files in __pycache__ or other hidden directories
-            if "__pycache__" in py_file.parts or any(part.startswith(".") for part in py_file.parts):
+            rel_parts = py_file.relative_to(base_dir).parts
+            if "__pycache__" in rel_parts or any(part.startswith(".") for part in rel_parts):
                 continue
 
             # Skip files that are Golf components (have export or resource_uri)

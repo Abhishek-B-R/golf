@@ -7,7 +7,9 @@ import pytest
 from golf.core.parser import (
     AstParser,
     ComponentType,
+    parse_common_files,
     parse_project,
+    parse_shared_files,
 )
 
 
@@ -83,6 +85,29 @@ export = run
         components = parser.parse_directory(sample_project / "tools")
 
         assert len(components) == 0
+
+    def test_project_inside_hidden_directory(self, temp_dir: Path) -> None:
+        """A dot directory above the project root must not hide its components."""
+        project = temp_dir / ".worktrees" / "project"
+        (project / "tools").mkdir(parents=True)
+        (project / "tools" / "helpers.py").write_text("def helper():\n    return 1\n")
+        (project / "tools" / "common.py").write_text("def shared():\n    return 1\n")
+        (project / "tools" / "greet.py").write_text(
+            '''"""Greet tool."""
+
+def run() -> dict:
+    """Say hi."""
+    return {"message": "hi"}
+
+export = run
+'''
+        )
+
+        components = parse_project(project)
+
+        assert [c.name for c in components[ComponentType.TOOL]] == ["greet"]
+        assert "tools" in parse_common_files(project)
+        assert str(Path("tools") / "helpers") in parse_shared_files(project)
 
     def test_ignores_common_py_files(self, sample_project: Path) -> None:
         """Test that common.py files are not returned as components."""
