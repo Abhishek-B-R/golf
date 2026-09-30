@@ -655,23 +655,35 @@ class AstParser:
 
     def _process_resource(self, component: ParsedComponent, tree: ast.Module) -> None:
         """Process a resource component to extract URI template."""
-        # Look for resource_uri assignment in the AST
+        # Look for a `resource_uri = "..."` or `resource_uri: str = "..."`
+        # assignment in the AST
         for node in tree.body:
             if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if (
-                        isinstance(target, ast.Name)
-                        and target.id == "resource_uri"
-                        and isinstance(node.value, ast.Constant)
-                    ):
-                        uri_template = node.value.value
-                        component.uri_template = uri_template
+                targets = node.targets
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            else:
+                continue
 
-                        # Extract URI parameters (parts in {})
-                        uri_params = re.findall(r"{([^}]+)}", uri_template)
-                        if uri_params:
-                            component.parameters = uri_params
-                        break
+            if (
+                any(isinstance(target, ast.Name) and target.id == "resource_uri" for target in targets)
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
+                uri_template = node.value.value
+                component.uri_template = uri_template
+
+                # Extract URI parameters (parts in {})
+                uri_params = re.findall(r"{([^}]+)}", uri_template)
+                if uri_params:
+                    component.parameters = uri_params
+                break
+
+        if component.uri_template is None:
+            raise ValueError(
+                f"Missing resource_uri in {component.file_path}. "
+                'Add a string literal such as resource_uri = "data://example".'
+            )
 
     def _process_prompt(self, component: ParsedComponent, tree: ast.Module) -> None:
         """Process a prompt component (no special processing needed)."""

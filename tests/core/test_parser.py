@@ -469,6 +469,51 @@ export = get_weather
         assert component.uri_template == "weather://current/{city}"
         assert component.parameters == ["city"]
 
+    def test_parses_typed_resource_uri(self, sample_project: Path) -> None:
+        """Test that a type-annotated resource_uri is picked up."""
+        resource_file = sample_project / "resources" / "typed.py"
+        resource_file.write_text(
+            '''"""Typed resource."""
+
+resource_uri: str = "users://{user_id}"
+
+
+def get_user(user_id: str) -> dict:
+    """Get a user."""
+    return {"id": user_id}
+
+
+export = get_user
+'''
+        )
+
+        parser = AstParser(sample_project)
+        components = parser.parse_file(resource_file)
+
+        assert len(components) == 1
+        assert components[0].uri_template == "users://{user_id}"
+        assert components[0].parameters == ["user_id"]
+
+    def test_resource_without_uri_is_rejected(self, sample_project: Path) -> None:
+        """A resource with no string resource_uri must not build with uri="None"."""
+        resource_file = sample_project / "resources" / "no_uri.py"
+        resource_file.write_text(
+            '''"""Resource without a URI."""
+
+
+def get_data() -> dict:
+    """Get data."""
+    return {"data": "value"}
+
+
+export = get_data
+'''
+        )
+
+        parser = AstParser(sample_project)
+        with pytest.raises(ValueError, match="resource_uri"):
+            parser.parse_file(resource_file)
+
     def test_parses_prompt(self, sample_project: Path) -> None:
         """Test parsing a prompt component."""
         prompt_file = sample_project / "prompts" / "greeting.py"
