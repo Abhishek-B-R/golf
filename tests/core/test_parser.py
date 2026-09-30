@@ -568,6 +568,26 @@ export = run
 
         assert components[0].name == "simple"
 
+    @pytest.mark.parametrize(
+        "relative_path",
+        ["my-tool.py", "class.py", "2fa.py", "my-group/tool.py"],
+    )
+    def test_rejects_unimportable_module_names(self, sample_project: Path, relative_path: str) -> None:
+        """Paths that are not valid module names would generate a broken server.py."""
+        tool_file = sample_project / "tools" / relative_path
+        tool_file.parent.mkdir(parents=True, exist_ok=True)
+        tool_file.write_text(
+            '''"""Tool."""
+def run() -> str:
+    return "ok"
+export = run
+'''
+        )
+
+        parser = AstParser(sample_project)
+        with pytest.raises(ValueError, match="not a valid Python module name"):
+            parser.parse_file(tool_file)
+
     def test_nested_id_generation(self, sample_project: Path) -> None:
         """Test ID generation for nested files."""
         # Create nested structure: tools/payments/stripe/refund.py

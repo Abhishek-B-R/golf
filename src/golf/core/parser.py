@@ -1,6 +1,7 @@
 """Python file parser for extracting tools, resources, and prompts using AST."""
 
 import ast
+import keyword
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -144,6 +145,17 @@ class AstParser:
         # If no valid function found, skip this file
         if not entry_function:
             return []
+
+        # The generated server imports each component by its dotted module
+        # path, so every directory and the file name must be importable
+        for part in (*rel_path.parts[1:-1], rel_path.stem):
+            if not part.isidentifier() or keyword.iskeyword(part):
+                raise ValueError(
+                    f"{rel_path.as_posix()} cannot be imported by the generated server because "
+                    f"'{part}' is not a valid Python module name. Rename it (e.g. use underscores "
+                    "instead of hyphens); an explicit name can be set with a decorator such as "
+                    '@tool(name="my-tool").'
+                )
 
         # Extract component description prioritizing function over module docstring
         description = self._extract_component_description(tree, entry_function, file_path)
